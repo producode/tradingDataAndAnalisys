@@ -73,29 +73,24 @@ def updateTicketsCedears(mongoClientUsed):
 
 def getInfoFewDaysAgo(days,actualDate,ticket):
     date_N_days_ago = actualDate - timedelta(days=days)
-
     dateInStringStart = str(date_N_days_ago.month) + "/" + str(date_N_days_ago.day) + "/" + str(date_N_days_ago.year)
     dateInStringEnd = str(actualDate.month) + "/" + str(actualDate.day) + "/" + str(actualDate.year)
+    print("getInfoFewDaysAgo: " + str(days))
 
     return get_data(ticket, start_date=dateInStringStart,end_date=dateInStringEnd)
 
 def getBollingerBands(days,actualDate,ticket):
-    data = getInfoFewDaysAgo(days,actualDate,ticket)
+    data = getInfoFewDaysAgo(days, actualDate, ticket)
     standarsDesviations = []
-    for day in range(len(data["open"])):
-        date_N_days_ago = datetime.now() - timedelta(days=day)
-        dataPast = getInfoFewDaysAgo(days,date_N_days_ago,ticket)
-        promediosPast = []
-        for dayPast in range(len(dataPast["high"])):
-            OCHLData = [dataPast["open"][dayPast], dataPast["low"][dayPast], dataPast["high"][dayPast], dataPast["close"][dayPast]]
-            promediosPast.append(np.mean(OCHLData))
-        standarsDesviations.append(np.std(promediosPast))
-    promedios = []
-    for day in range(len(data["high"])):
-        OCHLData = [data["open"][day],data["low"][day],data["high"][day],data["close"][day]]
-        promedios.append(np.mean(OCHLData))
+    aux = data.loc[:, ['open', 'close', 'high', 'low']]
+    totalDays = data['open'].to_numpy().__len__()
+    dataPastTest = getInfoFewDaysAgo(days*2, actualDate, ticket)
+    for day in range(totalDays):
+        dataPast = dataPastTest.iloc[day:totalDays+day]
+        promediosPast = dataPast.loc[:, ['open', 'close', 'high', 'low']]
+        standarsDesviations.append(np.std(promediosPast.mean(1).to_numpy()))
     BollingerBand = {
-        'prom': promedios,
+        'prom': aux.mean(1).to_numpy(),
         "standarDesviation": standarsDesviations
     }
     return BollingerBand
@@ -121,6 +116,7 @@ def createTrainsDataCedears(dateToStart):
         prom = (getInfoFewDaysAgo(1, date_time + timedelta(days=1), cedearTicket))
         prom = [prom["open"][0], prom["close"][0], prom["high"][0], prom["low"][0]]
         prom = np.mean(prom)
+        print(DAYS)
         data = getInfoFewDaysAgo(DAYS, date_time, cedearTicket)
         Bands = getBollingerBands(DAYS, date_time, cedearTicket)
         xQuantity = len(Bands['prom'])
@@ -165,7 +161,11 @@ mydb = myclient["Market"]
 mycol = mydb["ticketsCedears"]
 myData = mydb["cedearData"]
 
+#get de heatMap (just 2 cedears for now)
 xTrains, yTrains, xTest, yTest = createTrainsDataCedears("2020-08-26")
+
+"""
+#save in database
 
 for mapAndResult in range(len(xTrains)):
     mydict = {
@@ -173,6 +173,9 @@ for mapAndResult in range(len(xTrains)):
         "result": int(yTrains[mapAndResult])
     }
     x = myData.insert_one(mydict)
+"""
+
+#adapt the data
 
 xTrains.reshape(xTrains.shape[0], xTrains.shape[1]*xTrains.shape[2])
 xTest.reshape(xTest.shape[0], xTest.shape[1]*xTest.shape[2])
@@ -183,6 +186,7 @@ xTest = xTest/100
 yTrains = np_utils.to_categorical(yTrains, 100)
 yTest = np_utils.to_categorical(yTest, 100)
 
+#create the model
 
 class MyModel(tf.keras.Model):
 
@@ -196,6 +200,7 @@ class MyModel(tf.keras.Model):
       x = self.dense1(inputs)
       return self.dense2(x)
 
+#use the model
 
 model = MyModel()
 
@@ -205,19 +210,37 @@ model.fit(x=xTrains, y=yTrains, batch_size=100, epochs=10, verbose=1, validation
 
 model.evaluate(x=xTest, y=yTest, batch_size=100, verbose=1)
 
+
 """
-getBollingerBands(ticket) give you the bollinger bands in a dict
+------------------------------------------------
+getBollingerBands(ticket)
+
+Description:
+Give you the bollinger bands in a dict
  
+The dict returned:
 bollingerBand{
     prom:[],
     standarDesviation:[]
 }
+------------------------------------------------
+getInfoFewDaysAgo(days,actualDate,ticket)
 
-getInfoFewDaysAgo(days,actualDate,ticket) return the data from few days ago
+Description:
+return the data from few days ago
+------------------------------------------------
+updateTicketsCedears(mongoClientUsed)
 
-updateTicketsCedears(mongoClientUsed) update the name of cedears's tickets in the database
+Description: 
+Update the name of cedears's tickets in the database
+------------------------------------------------
+getCedearsFrom(tickets) 
 
-getCedearsFrom(tickets) check in an array if it have valids cedears and give you the truly tickets
+Description:
+check in an array if it have valids cedears and give you the truly tickets
+------------------------------------------------
+getTokenBullMarket(dni,password)
 
-getTokenBullMarket(dni,password) with the dni and the password of an account in BullMarket give you a valid token 
+Description:
+with the dni and the password of an account in BullMarket give you a valid token 
 """
