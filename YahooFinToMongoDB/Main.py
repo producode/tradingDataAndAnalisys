@@ -245,6 +245,37 @@ def runIATest():
     print(yTest)
     print(evaluacion)
 
+
+def subirCedearsDelDia(myOtherData):
+    cedears = []
+    for ticket in mycol.find():
+        cedears.append(ticket['TicketName'])
+
+    updateInfo = {
+        "fecha": datetime.now().strftime("%m/%d/%Y"),
+        "cedears": []
+    }
+    for cedear in tqdm(range(len(cedears))):
+        info = getInfoFewDaysAgo(1, datetime.now(), cedears[cedear])
+        if type(info) != type(""):
+            infoToUpdate = {
+                "ticket": cedears[cedear],
+                "open": info["open"][0],
+                "close": info["close"][0],
+                "high": info["high"][0],
+                "low": info["low"][0]
+            }
+            updateInfo["cedears"].append(infoToUpdate.copy())
+    nro = 0
+    for a in myOtherData.find({"fecha": datetime.now().strftime("%m/%d/%Y")}):
+        nro += 1
+    if nro > 0:
+        myOtherData.update_one({"fecha": datetime.now().strftime("%m/%d/%Y")},
+                               {"$set": {"cedears": updateInfo["cedears"]}})
+    else:
+        myOtherData.insert_one(updateInfo)
+
+
 myclient = MongoClient("mongodb://localhost:27017/")
 
 
@@ -253,35 +284,11 @@ mycol = mydb["ticketsCedears"]
 myData = mydb["cedearData"]
 myOtherData = mydb["cedearPureData"]
 
+
+subirCedearsDelDia(myOtherData)
 # updateTicketsCedears("mongodb://localhost:27017/")
 
 # get de heatMap (just 2 cedears for now)
-cedears = []
-for ticket in mycol.find():
-    cedears.append(ticket['TicketName'])
-
-updateInfo = {
-    "fecha":datetime.now().strftime("%m/%d/%Y"),
-    "cedears":[]
-}
-for cedear in cedears:
-    info = getInfoFewDaysAgo(1,datetime.now(),cedear)
-    if type(info) != type("") :
-        infoToUpdate = {
-            "ticket": cedear,
-            "open":info["open"][0],
-            "close":info["close"][0],
-            "high":info["high"][0],
-            "low":info["low"][0]
-        }
-        updateInfo["cedears"].append(infoToUpdate.copy())
-nro = 0
-for a in myOtherData.find({"fecha": datetime.now().strftime("%m/%d/%Y")}):
-    nro += 1
-if nro > 0:
-    myOtherData.update_one({"fecha": datetime.now().strftime("%m/%d/%Y")}, { "$set": { "cedears": updateInfo["cedears"] } })
-else:
-    myOtherData.insert_one(updateInfo)
 
 
 
@@ -299,6 +306,11 @@ for mapAndResult in range(len(xTrains)):
 
 
 """
+------------------------------------------------
+subirCedearsDelDia(myOtherData)
+
+description:
+update the cedear's data from today into the mongodb in the table "myOtherData"
 ------------------------------------------------
 runIATest()
 
