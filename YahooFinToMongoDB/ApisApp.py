@@ -23,7 +23,7 @@ def base():
 @app.route('/cedearsToday', methods=['GET'])
 def cedearsToday():
     response = dumps(myOtherData.find({"fecha": datetime.now().strftime("%m/%d/%Y")}))
-    return Response(response=json.dumps(response),
+    return Response(response=response,
                     status=200,
                     mimetype='application/json')
 
