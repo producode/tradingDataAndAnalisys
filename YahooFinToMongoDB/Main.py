@@ -79,27 +79,34 @@ def updateTicketsCedears(mongoClientUsed):
 
 def getInfoFewDaysAgo(days, actualDate, ticket):
     date_N_days_ago = actualDate - timedelta(days=days)
-    dateInStringStart = str(date_N_days_ago.month) + "/" + str(date_N_days_ago.day) + "/" + str(date_N_days_ago.year)
-    dateInStringEnd = str(actualDate.month) + "/" + str(actualDate.day) + "/" + str(actualDate.year)
+    dateInStringStart = date_N_days_ago.strftime("%m/%d/%Y")
+    dateInStringEnd = actualDate.strftime("%m/%d/%Y")
+    try:
+        data = get_data(ticket, start_date=dateInStringStart,end_date=dateInStringEnd)
+    except:
+        data = "failure"
 
-    return get_data(ticket, start_date=dateInStringStart,end_date=dateInStringEnd)
+    return data
 
 
 def getBollingerBands(days, actualDate, ticket):
     data = getInfoFewDaysAgo(days, actualDate, ticket)
-    standarsDesviations = []
-    totalDays = data['open'].to_numpy().__len__()
-    dataPastTest = getInfoFewDaysAgo(days*2, actualDate, ticket)
-    for day in range(totalDays):
-        dataPast = dataPastTest.iloc[day:totalDays+day]
-        promediosPast = dataPast.loc[:, ['open', 'close', 'high', 'low']]
-        standarsDesviations.append(np.std(promediosPast.mean(1).to_numpy()))
-    aux = data.loc[:, ['open', 'close', 'high', 'low']]
-    BollingerBand = {
-        'prom': aux.mean(1).to_numpy(),
-        "standarDesviation": standarsDesviations
-    }
-    return BollingerBand
+    if type(data) != type("") :
+        standarsDesviations = []
+        totalDays = data['open'].to_numpy().__len__()
+        dataPastTest = getInfoFewDaysAgo(days*2, actualDate, ticket)
+        for day in range(totalDays):
+            dataPast = dataPastTest.iloc[day:totalDays+day]
+            promediosPast = dataPast.loc[:, ['open', 'close', 'high', 'low']]
+            standarsDesviations.append(np.std(promediosPast.mean(1).to_numpy()))
+        aux = data.loc[:, ['open', 'close', 'high', 'low']]
+        BollingerBand = {
+            'prom': aux.mean(1).to_numpy(),
+            "standarDesviation": standarsDesviations
+        }
+        return True, BollingerBand
+    else:
+        return False, None
 
 
 def acotation(max, min, num):
@@ -140,10 +147,12 @@ def createTrainsDataCedears(dateToStart):
     for cedear in mycol.find():
         cedears.append(cedear['TicketName'])
     trainOrTest = True
-    for NroCedear in tqdm(range(20)):
-        try:
-            cedearTicket = cedears[NroCedear]
-            prom = (getInfoFewDaysAgo(1, date_time + timedelta(days=1), cedearTicket))
+    for NroCedear in tqdm(range(30)):
+        if NroCedear == 27:
+            continue
+        cedearTicket = cedears[NroCedear]
+        prom = getInfoFewDaysAgo(1, date_time + timedelta(days=1), cedearTicket)
+        if type(prom) != type("") :
             prom = [prom["open"][0], prom["close"][0], prom["high"][0], prom["low"][0]]
             prom = np.mean(prom)
             data = getInfoFewDaysAgo(DAYS, date_time, cedearTicket)
@@ -174,16 +183,20 @@ def createTrainsDataCedears(dateToStart):
                         heatMap[y][xPos] = int(heat)
                         heat -= substrac
                 heatMap[yPos][xPos] = 255
-
+            acotationVar = acotation(np.max(data["high"]), np.min(data["low"]), prom)
+            if acotationVar >= 100:
+                acotationVar = 99
+            elif acotationVar < 0:
+                acotationVar = 0
             if trainOrTest:
-                yTrains.append(acotation(np.max(data["high"]), np.min(data["low"]), prom))
+                yTrains.append(acotationVar)
                 xTrains.append(heatMap.copy())
             else:
-                yTest.append(acotation(np.max(data["high"]), np.min(data["low"]), prom))
+                yTest.append(acotationVar)
                 xTest.append(heatMap.copy())
             trainOrTest = not trainOrTest
-        except:
-            continue
+            plt.imshow(heatMap, cmap='hot', interpolation='nearest')
+            plt.show()
     xTrains = np.array(xTrains)
     yTrains = np.array(yTrains)
     xTest = np.array(xTest)
@@ -192,17 +205,86 @@ def createTrainsDataCedears(dateToStart):
     return xTrains, yTrains, xTest, yTest
 
 
+def runIATest():
+    xTrains, yTrains, xTest, yTest = createTrainsDataCedears("2020-08-26")
+
+    # adapt the data
+    xTrains = xTrains.reshape((xTrains.shape[0], xTrains.shape[1] * xTrains.shape[2]))
+    xTest = xTest.reshape((xTest.shape[0], xTest.shape[1] * xTest.shape[2]))
+
+    xTrains = xTrains / 255
+    xTest = xTest / 255
+
+    yTrains = np_utils.to_categorical(yTrains, 100)
+    yTest = np_utils.to_categorical(yTest, 100)
+
+    # create the model
+
+    class MyModel(tf.keras.Model):
+
+        def __init__(self):
+            super(MyModel, self).__init__()
+            self.dense1 = tf.keras.layers.Dense(32, input_dim=2100, activation=tf.nn.relu)
+            self.dense2 = tf.keras.layers.Dense(100, activation=tf.nn.softmax)
+            self.dropout = tf.keras.layers.Dropout(0.5)
+
+        def call(self, inputs):
+            x = self.dense1(inputs)
+            return self.dense2(x)
+
+    # use the model
+
+    model = MyModel()
+
+    model.compile(optimizer='sgd', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    model.fit(x=xTrains, y=yTrains, batch_size=100, epochs=10, verbose=1, validation_data=(xTest, yTest))
+
+    evaluacion = model.evaluate(x=xTest, y=yTest, batch_size=100, verbose=1)
+
+    print(yTest)
+    print(evaluacion)
+
 myclient = MongoClient("mongodb://localhost:27017/")
 
 
 mydb = myclient["Market"]
 mycol = mydb["ticketsCedears"]
 myData = mydb["cedearData"]
+myOtherData = mydb["cedearPureData"]
 
 # updateTicketsCedears("mongodb://localhost:27017/")
 
 # get de heatMap (just 2 cedears for now)
-xTrains, yTrains, xTest, yTest = createTrainsDataCedears("2020-08-26")
+cedears = []
+for ticket in mycol.find():
+    cedears.append(ticket['TicketName'])
+
+updateInfo = {
+    "fecha":datetime.now().strftime("%m/%d/%Y"),
+    "cedears":[]
+}
+for cedear in cedears:
+    info = getInfoFewDaysAgo(1,datetime.now(),cedear)
+    if type(info) != type("") :
+        infoToUpdate = {
+            "ticket": cedear,
+            "open":info["open"][0],
+            "close":info["close"][0],
+            "high":info["high"][0],
+            "low":info["low"][0]
+        }
+        updateInfo["cedears"].append(infoToUpdate.copy())
+nro = 0
+for a in myOtherData.find({"fecha": datetime.now().strftime("%m/%d/%Y")}):
+    nro += 1
+if nro > 0:
+    myOtherData.update_one({"fecha": datetime.now().strftime("%m/%d/%Y")}, { "$set": { "cedears": updateInfo["cedears"] } })
+else:
+    myOtherData.insert_one(updateInfo)
+
+
+
 
 """
 #save in database
@@ -215,49 +297,13 @@ for mapAndResult in range(len(xTrains)):
     x = myData.insert_one(mydict)
 """
 
-# adapt the data
-
-
-xTrains = xTrains.reshape((xTrains.shape[0], xTrains.shape[1]*xTrains.shape[2]))
-xTest = xTest.reshape((xTest.shape[0], xTest.shape[1]*xTest.shape[2]))
-
-xTrains = xTrains/255
-xTest = xTest/255
-
-yTrains = np_utils.to_categorical(yTrains, 100)
-yTest = np_utils.to_categorical(yTest, 100)
-
-# create the model
-
-
-class MyModel(tf.keras.Model):
-
-    def __init__(self):
-        super(MyModel, self).__init__()
-        self.dense1 = tf.keras.layers.Dense(32, input_dim=2100, activation=tf.nn.relu)
-        self.dense2 = tf.keras.layers.Dense(100, activation=tf.nn.softmax)
-        self.dropout = tf.keras.layers.Dropout(0.5)
-
-    def call(self, inputs):
-        x = self.dense1(inputs)
-        return self.dense2(x)
-
-# use the model
-
-
-model = MyModel()
-
-model.compile(optimizer='sgd', loss='categorical_crossentropy', metrics=['accuracy'])
-
-model.fit(x=xTrains, y=yTrains, batch_size=100, epochs=10, verbose=1, validation_data=(xTest, yTest))
-
-evaluacion = model.evaluate(x=xTest, y=yTest, batch_size=100, verbose=1)
-
-print(yTest)
-print(evaluacion)
-
 
 """
+------------------------------------------------
+runIATest()
+
+Description:
+run a IA's Test
 ------------------------------------------------
 getBollingerBands(ticket)
 
