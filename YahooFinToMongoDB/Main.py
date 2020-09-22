@@ -1,4 +1,3 @@
-from bson import binary
 from yahoo_fin.stock_info import *
 from tqdm import *
 from pymongo import *
@@ -6,9 +5,44 @@ import json
 import numpy as np
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-import pickle
 from keras.utils import np_utils
 import tensorflow as tf
+
+jsonASubir = {
+    "tipo_activo":"",
+    "activo":"",
+    "ticket":"",
+    "fecha":"",
+    "indicadores":[
+        {
+            "indicador":"STOCH",
+            "curvas":{
+                "slowk":[],
+                "slowd":[]
+            },
+            "lineas_punteadas":[
+                {
+                    "nombre":0,
+                    "posicion_y":0
+                }
+            ],
+            "etiquetas":[
+                {
+                    "nombre":"",
+                    "posiciones":[]
+                }
+            ]
+        },
+        {
+            "indicador":"DMI",
+            "curvas":{
+                "adx":[],
+                "di_plus":[],
+                "di_minus":[]
+            }
+        }
+    ]
+}
 
 
 def getTokenBullMarket(dni,password):
@@ -78,25 +112,32 @@ def updateTicketsCedears(mongoClientUsed):
 
 
 def getInfoFewDaysAgo(days, actualDate, ticket):
-    date_N_days_ago = actualDate - timedelta(days=days)
-    dateInStringStart = date_N_days_ago.strftime("%m/%d/%Y")
-    dateInStringEnd = actualDate.strftime("%m/%d/%Y")
     try:
-        data = get_data(ticket, start_date=dateInStringStart,end_date=dateInStringEnd)
+        data = ""
+        size = 0
+        laboralDays = days
+        while (size != days):
+            date_N_days_ago = actualDate - timedelta(days=laboralDays)
+            dateInStringStart = date_N_days_ago.strftime("%m/%d/%Y")
+            dateInStringEnd = actualDate.strftime("%m/%d/%Y")
+            data = get_data(ticket, start_date=dateInStringStart,end_date=dateInStringEnd)
+            size = data["high"].size
+            if (size != days):
+                laboralDays += 1
+        return data
     except:
-        data = "failure"
-
-    return data
+        return "failure"
 
 
 def getBollingerBands(days, actualDate, ticket):
+    daysBollinger = 20
+    daysUsedInBollinger = days+daysBollinger
     data = getInfoFewDaysAgo(days, actualDate, ticket)
     if type(data) != type("") :
         standarsDesviations = []
-        totalDays = data['open'].to_numpy().__len__()
-        dataPastTest = getInfoFewDaysAgo(days*2, actualDate, ticket)
-        for day in range(totalDays):
-            dataPast = dataPastTest.iloc[day:totalDays+day]
+        dataPastTest = getInfoFewDaysAgo(daysUsedInBollinger, actualDate, ticket)
+        for day in range(days):
+            dataPast = dataPastTest.iloc[day:daysBollinger+day]
             promediosPast = dataPast.loc[:, ['open', 'close', 'high', 'low']]
             standarsDesviations.append(np.std(promediosPast.mean(1).to_numpy()))
         aux = data.loc[:, ['open', 'close', 'high', 'low']]
@@ -107,6 +148,16 @@ def getBollingerBands(days, actualDate, ticket):
         return True, BollingerBand
     else:
         return False, None
+
+
+def getStochasticIndicator(actualDate, ticket):
+    data = getInfoFewDaysAgo(5, actualDate, ticket)
+    maximo = np.max(data["high"])
+    minimo = np.min(data["low"])
+    cierre = data["close"][4]
+    slowK = ((cierre-minimo)/(maximo-minimo)*100)
+    slowD = (((np.sum(data["close"]) / 5)-minimo)/(maximo-minimo))*100
+    return slowK, slowD
 
 
 def acotation(max, min, num):
@@ -285,7 +336,10 @@ myData = mydb["cedearData"]
 myOtherData = mydb["cedearPureData"]
 
 
-subirCedearsDelDia(myOtherData)
+slowK, slowD = getStochasticIndicator(datetime.now(), "BABA")
+print(slowK)
+print(slowD)
+# subirCedearsDelDia(myOtherData)
 # updateTicketsCedears("mongodb://localhost:27017/")
 
 # get de heatMap (just 2 cedears for now)
