@@ -334,7 +334,7 @@ def subirCedearsDelDia(myOtherData):
     else:
         myOtherData.insert_one(updateInfo)
 
-def showStoch(stochData):
+def showStoch(stochData, ticket):
     dateStoch = stochData.index.values
     newDateStoch = []
     for date in dateStoch:
@@ -357,7 +357,7 @@ def showStoch(stochData):
                         name='STOCHd_3'))
     annotations = [(dict(xref='paper', yref='paper', x=0.0, y=1.05,
                                   xanchor='left', yanchor='bottom',
-                                  text=TICKET,
+                                  text=ticket,
                                   font=dict(family='Arial',
                                             size=30,
                                             color='rgb(37,37,37)'),
@@ -380,7 +380,7 @@ DAYS = 30
 stochData = getStochasticIndicator(DAYS, datetime.now(), TICKET)
 ADXData = getADXIndicator(DAYS, datetime.now(), TICKET)
 
-showStoch(stochData)
+showStoch(stochData, TICKET)
 
 # subirCedearsDelDia(myOtherData)
 # updateTicketsCedears("mongodb://localhost:27017/")
