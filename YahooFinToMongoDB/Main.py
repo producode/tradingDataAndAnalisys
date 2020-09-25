@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 from keras.utils import np_utils
 import tensorflow as tf
+import pandas_ta as ta
+import plotly.express as px
+import plotly.graph_objects as go
 
 jsonASubir = {
     "tipo_activo":"",
@@ -22,8 +25,12 @@ jsonASubir = {
             },
             "lineas_punteadas":[
                 {
-                    "nombre":0,
-                    "posicion_y":0
+                    "nombre":"80",
+                    "posicion_y":80
+                },
+                {
+                    "nombre":"20",
+                    "posicion_y":20
                 }
             ],
             "etiquetas":[
@@ -150,14 +157,15 @@ def getBollingerBands(days, actualDate, ticket):
         return False, None
 
 
-def getStochasticIndicator(actualDate, ticket):
-    data = getInfoFewDaysAgo(5, actualDate, ticket)
-    maximo = np.max(data["high"])
-    minimo = np.min(data["low"])
-    cierre = data["close"][4]
-    slowK = ((cierre-minimo)/(maximo-minimo)*100)
-    slowD = (((np.sum(data["close"]) / 5)-minimo)/(maximo-minimo))*100
-    return slowK, slowD
+def getStochasticIndicator(days, actualDate, ticket):
+    data = getInfoFewDaysAgo(days, actualDate, ticket)
+    data = ta.stoch(data["high"],data["low"],data["close"])
+    return data
+
+def getADXIndicator(days, actualDate, ticket):
+    data = getInfoFewDaysAgo(days,actualDate,ticket)
+    data = ta.adx(data["high"],data["low"],data["close"])
+    return data
 
 
 def acotation(max, min, num):
@@ -301,7 +309,6 @@ def subirCedearsDelDia(myOtherData):
     cedears = []
     for ticket in mycol.find():
         cedears.append(ticket['TicketName'])
-
     updateInfo = {
         "fecha": datetime.now().strftime("%m/%d/%Y"),
         "cedears": []
@@ -309,6 +316,7 @@ def subirCedearsDelDia(myOtherData):
     for cedear in tqdm(range(len(cedears))):
         info = getInfoFewDaysAgo(1, datetime.now(), cedears[cedear])
         if type(info) != type(""):
+
             infoToUpdate = {
                 "ticket": cedears[cedear],
                 "open": info["open"][0],
@@ -326,6 +334,37 @@ def subirCedearsDelDia(myOtherData):
     else:
         myOtherData.insert_one(updateInfo)
 
+def showStoch(stochData):
+    dateStoch = stochData.index.values
+    newDateStoch = []
+    for date in dateStoch:
+        newDate = pd.to_datetime(str(date))
+        newDate = newDate.strftime("%Y-%m-%d")
+        newDateStoch.append(newDate)
+    print(newDateStoch)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=newDateStoch, y=stochData["STOCHFk_14"],
+                        mode='lines+markers',
+                        name='STOCHFk_14'))
+    fig.add_trace(go.Scatter(x=newDateStoch, y=stochData["STOCHFd_3"],
+                        mode='lines+markers',
+                        name='STOCHFd_3'))
+    fig.add_trace(go.Scatter(x=newDateStoch, y=stochData["STOCHk_5"],
+                        mode='lines+markers',
+                        name='STOCHk_5'))
+    fig.add_trace(go.Scatter(x=newDateStoch, y=stochData["STOCHd_3"],
+                        mode='lines+markers',
+                        name='STOCHd_3'))
+    annotations = [(dict(xref='paper', yref='paper', x=0.0, y=1.05,
+                                  xanchor='left', yanchor='bottom',
+                                  text=TICKET,
+                                  font=dict(family='Arial',
+                                            size=30,
+                                            color='rgb(37,37,37)'),
+                                  showarrow=False))]
+    fig.update_layout(annotations=annotations)
+    fig.show()
+
 
 myclient = MongoClient("mongodb://localhost:27017/")
 
@@ -335,15 +374,18 @@ mycol = mydb["ticketsCedears"]
 myData = mydb["cedearData"]
 myOtherData = mydb["cedearPureData"]
 
+TICKET = "DIS"
+DAYS = 30
 
-slowK, slowD = getStochasticIndicator(datetime.now(), "BABA")
-print(slowK)
-print(slowD)
+stochData = getStochasticIndicator(DAYS, datetime.now(), TICKET)
+ADXData = getADXIndicator(DAYS, datetime.now(), TICKET)
+
+showStoch(stochData)
+
 # subirCedearsDelDia(myOtherData)
 # updateTicketsCedears("mongodb://localhost:27017/")
 
 # get de heatMap (just 2 cedears for now)
-
 
 
 
