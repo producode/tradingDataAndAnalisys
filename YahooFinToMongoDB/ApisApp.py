@@ -1,4 +1,4 @@
-from flask import Flask, Response, json
+from flask import Flask, Response, Request, json
 from pymongo import *
 from datetime import datetime, timedelta
 from bson.json_util import dumps
@@ -20,9 +20,9 @@ def base():
                     mimetype='application/json')
 
 
-@app.route('/cedearsToday', methods=['GET'])
-def cedearsToday():
-    response = dumps(myOtherData.find({"fecha": datetime.now().strftime("%m/%d/%Y")}))
+@app.route('/action/<ticket>', methods=['GET'])
+def actions(ticket):
+    response = dumps(myOtherData.find({"ticket": ticket}))
     return Response(response=response,
                     status=200,
                     mimetype='application/json')

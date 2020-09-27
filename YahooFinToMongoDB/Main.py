@@ -9,68 +9,23 @@ import json
 import Indicadores as Indicator
 import Herramientas as tool
 
-
-
-jsonASubir = {
-    "tipo_activo":"",
-    "activo":"",
-    "ticket":"",
-    "fecha":"",
-    "indicadores":[
-        {
-            "indicador":"STOCH",
-            "curvas":{
-                "slowk":[],
-                "slowd":[]
-            },
-            "lineas_punteadas":[
-                {
-                    "nombre":"80",
-                    "posicion_y":80
-                },
-                {
-                    "nombre":"20",
-                    "posicion_y":20
-                }
-            ],
-            "etiquetas":[
-                {
-                    "nombre":"",
-                    "posiciones":[]
-                }
-            ]
-        },
-        {
-            "indicador":"DMI",
-            "curvas":{
-                "adx":[],
-                "di_plus":[],
-                "di_minus":[]
-            }
-        }
-    ]
-}
-
 MyBase = BaseDeDatos("mongodb://localhost:27017/", "Market", "ticketsCedears", "cedearPureData")
-MyBase.subirCedearsDelDia()
+MyBase.subirIndicesYDatosDelDia()
 
 TICKET = "BPAT.BA"
 DAYS = 30
 
-data = tool.getInfoFewDaysAgo(DAYS, datetime.now(), TICKET)
+data = tool.getInfoFewDaysAgo(DAYS, datetime.now(), TICKET, 10)
 stochData = Indicator.getStochasticIndicator(data)
 ADXData = Indicator.getADXIndicator(data)
 bBand = Indicator.getBollingerBands(data)
 
-#showStoch(stochData, TICKET)
-Indicator.showBBGraphic(bBand, data, TICKET)
-Indicator.showADXGraphic(ADXData, TICKET)
-Indicator.showStochGraphic(stochData, TICKET)
-
-# subirCedearsDelDia(myOtherData)
-# updateTicketsCedears("mongodb://localhost:27017/")
-
-# get de heatMap (just 2 cedears for now)
+print(stochData)
+print("-----------------------------")
+print(ADXData)
+print("-----------------------------")
+print(bBand)
+print("-----------------------------")
 
 
 
@@ -109,7 +64,7 @@ bollingerBand{
     standarDesviation:[]
 }
 ------------------------------------------------
-getInfoFewDaysAgo(days,actualDate,ticket)
+getInfoFewDaysAgo(days,actualDate,ticket, tolerance)
 
 Description:
 return the data from few days ago

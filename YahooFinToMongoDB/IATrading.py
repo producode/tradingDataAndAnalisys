@@ -63,11 +63,11 @@ class IA:
             if NroCedear == 27:
                 continue
             cedearTicket = self.cedears[NroCedear]
-            prom = tools.getInfoFewDaysAgo(1, date_time + timedelta(days=1), cedearTicket)
+            prom = tools.getInfoFewDaysAgo(1, date_time + timedelta(days=1), cedearTicket, 10)
             if type(prom) != type("") :
                 prom = [prom["open"][0], prom["close"][0], prom["high"][0], prom["low"][0]]
                 prom = np.mean(prom)
-                data = tools.getInfoFewDaysAgo(DAYS, date_time, cedearTicket)
+                data = tools.getInfoFewDaysAgo(DAYS, date_time, cedearTicket, 10)
                 Bands = indicator.getBollingerBands(data)
                 xQuantity = Bands.size
                 heatMap = np.zeros((100, xQuantity))
