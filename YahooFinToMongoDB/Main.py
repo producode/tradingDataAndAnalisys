@@ -2,8 +2,6 @@ from datetime import datetime, timedelta
 
 from BaseDeDatos import BaseDeDatos
 
-import json
-
 import Indicadores as Indicator
 import Herramientas as tool
 

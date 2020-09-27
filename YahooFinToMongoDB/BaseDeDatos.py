@@ -72,32 +72,6 @@ class BaseDeDatos:
                 continue
         return ticketsAvaliables
 
-    def subirCedearsDelDia(self):
-        cedears = []
-        for ticket in self.MTickets.find():
-            cedears.append(ticket['TicketName'])
-        updateInfo = {
-            "fecha": datetime.now().strftime("%m/%d/%Y"),
-            "cedears": [],
-        }
-        for cedear in tqdm(range(len(cedears))):
-            info = tool.getInfoFewDaysAgo(1, datetime.now(), cedears[cedear], 10)
-            if type(info) != type(""):
-                infoToUpdate = {
-                    "ticket": cedears[cedear],
-                    "open": info["open"][0],
-                    "close": info["close"][0],
-                    "high": info["high"][0],
-                    "low": info["low"][0]
-                }
-                updateInfo["cedears"].append(infoToUpdate.copy())
-        nro = self.MData.find({"fecha": datetime.now().strftime("%m/%d/%Y")}).count()
-        if nro > 0:
-            self.MData.update_one({"fecha": datetime.now().strftime("%m/%d/%Y")},
-                                   {"$set": {"cedears": updateInfo["cedears"]}})
-        else:
-            self.MData.insert_one(updateInfo)
-
     def fromCursorGetJson(self,cursor):
         documentInJson = {}
         for document in cursor:
