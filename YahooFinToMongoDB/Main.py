@@ -1,6 +1,4 @@
-from pymongo import *
 from datetime import datetime, timedelta
-import requests
 
 from BaseDeDatos import BaseDeDatos
 
@@ -10,6 +8,7 @@ import Indicadores as Indicator
 import Herramientas as tool
 
 MyBase = BaseDeDatos("mongodb://localhost:27017/", "Market", "ticketsCedears", "cedearPureData")
+MyBase.updateTicketsCedears()
 MyBase.subirIndicesYDatosDelDia()
 
 TICKET = "BPAT.BA"
